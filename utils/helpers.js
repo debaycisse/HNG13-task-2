@@ -22,7 +22,7 @@ const connectionObj = process.env.NODE_ENV === 'development' ?
     port: process.env.DB_PORT
   }
 
-const db = await mysql.createConnection({...connectionObj})
+const db = async () => await mysql.createConnection({...connectionObj})
 
 const is_valid = (name, population, currency_code) => {
   if (!name || typeof name !== 'string')
@@ -36,7 +36,33 @@ const is_valid = (name, population, currency_code) => {
   return true
 }
 
+const calcEstimatedGdp = (population, exchange_rate) => {
+  const randNumber = Math.floor(Math.random() * 2000) + 1000
+
+  return population * randNumber / exchange_rate
+}
+
+const findCountryByName = async (countryName) => {
+  try {
+    const [rows] = await db().execute(
+      `SELECT * FROM countries WHERE LOWER(name) = ?`,
+      [countryName.toLowerCase()]
+    )
+    return rows
+  } catch (error) {
+    throw error
+  }
+}
+
+const createAndInsertCountry = async (name, population, currency_code) {
+  // Implement it here...
+  
+}
+
 module.exports = {
   is_valid,
-  db
+  db,
+  calcEstimatedGdp,
+  findCountryByName,
+  createAndInsertCountry
 }

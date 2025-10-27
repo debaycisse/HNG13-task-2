@@ -1,7 +1,8 @@
 const axios = require('axios')
 const { is_valid, db } = require('../utils/helpers')
 
-class Countries {
+
+class Country {
   name
   population
   currency_code
@@ -24,6 +25,7 @@ class Countries {
       this.estimated_gdp = 0.0
       this.flag_url = null
       // this.data = []
+      return this
     } catch (error) {
       throw error;
     }
@@ -33,9 +35,8 @@ class Countries {
     try {
       this.capital = fieldsObj.capital
       this.region = fieldsObj.region
-      this.exchange_rate = fieldsObj.exchange_rate
       this.flag_url = fieldsObj.flag_url
-      // return this
+      return this
     } catch (error) {
       throw error
     }
@@ -60,12 +61,32 @@ class Countries {
 
   async insertCountryData () {
     try {
-      const [result] = await db.execute(
+      const [result] = await db().execute(
         `INSERT INTO countries VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         this.obtainCountryData()
       )
       // console.log('result ::::::', result);
       
+    } catch (error) {
+      throw error
+    }
+  }
+
+  async updateCountryData (id) {
+    try {
+      const [result] = await db().execute(
+        `UPDATE countries SET name = ?, capital = ?, region = ?,
+          population = ?, currency_code = ?, exchange_rate = ?,
+          estimated_gdp = ?, flag_url = ?
+          WHERE id = ?
+        `,
+        [
+          this.name, this.capital, this.region, this.population,
+          this.currency_code, this.exchange_rate, this.estimated_gdp,
+          this.flag_url,
+          id
+        ]
+      )
     } catch (error) {
       throw error
     }
@@ -77,6 +98,8 @@ class Countries {
 
 
 }
+
+module.exports = Country
 
 // name
 // capital
