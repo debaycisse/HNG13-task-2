@@ -2,7 +2,6 @@ const axios = require('axios')
 const fs = require('fs');
 const { createCanvas } = require('canvas');
 const mysql = require('mysql2/promise');
-const { error } = require('console');
 
 const connectionObj = process.env.NODE_ENV === 'development' ?
   {
@@ -27,7 +26,7 @@ const connectionObj = process.env.NODE_ENV === 'development' ?
   }
 
 const connection = async () => await mysql.createConnection({...connectionObj})
-const db = await connection()
+// const db = await connection()
 
 const is_valid = (name, population, currency_code) => {
   if (!name || typeof name !== 'string')
@@ -36,7 +35,10 @@ const is_valid = (name, population, currency_code) => {
   if (!population || typeof population !== 'number')
     return {population: 'is required'}
 
-  if (!currency_code || typeof currency_code !== 'string')
+  if (
+      currency_code !== null &&
+      typeof currency_code !== 'string'
+    )
     return {currency_code: 'is required'}
   return true
 }
@@ -44,16 +46,18 @@ const is_valid = (name, population, currency_code) => {
 const calcEstimatedGdp = (population, exchange_rate) => {
   const randNumber = Math.floor(Math.random() * 2000) + 1000
 
-  return population * randNumber / exchange_rate
+  const result = population * randNumber / exchange_rate
+
+  return parseFloat(result.toFixed(1))
 }
 
 const findCountryByName = async (countryName) => {
   try {
-    const [rows] = await db().execute(
+    const [rows] = await (await connection()).execute(
       `SELECT * FROM countries WHERE LOWER(name) = ?;`,
       [countryName.toLowerCase()]
     )
-    return rows
+    return rows[0]
   } catch (error) {
     throw error
   }
@@ -88,8 +92,8 @@ const createAndInsertCountry = async (name, population, currency_code) => {
       exchange_rate, estimated_gdp, flag_url
     }
 
-    // insert the properties of the object into the db
-    const [result] = await db.execute(
+    // insert the properties of the object into the (await connection())
+    const [result] = await (await connection()).execute(
       `INSERT INTO countries VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
       [
         countryObject.name, countryObject.capital,
@@ -137,7 +141,7 @@ const drawSummaryImage = async (dataObject) => {
 }
 
 const countryCount = async () => {
-  const [rows] = await db
+  const [rows] = await (await connection())
     .execute(
       `
       SELECT COUNT(*) AS total_country
@@ -148,7 +152,7 @@ const countryCount = async () => {
 }
 
 const topFiveCountryByEstimatedGdp = async () => {
-  const [rows] = await db
+  const [rows] = await (await connection())
     .execute(
       `
       SELECT name
@@ -161,7 +165,7 @@ const topFiveCountryByEstimatedGdp = async () => {
 }
 
 const lastRefreshTimestamp = async () => {
-  const [rows] = await db
+  const [rows] = await (await connection())
     .execute(
       `
       SELECT last_refreshed_at AS last_refresh
@@ -177,14 +181,50 @@ const lastRefreshTimestamp = async () => {
   return rows[0].last_refresh
 }
 
+const updateCountryData = async (countryObject) => {
+    try {
+      const [result] = await (await connection()).execute(
+        `UPDATE countries SET name = ?, capital = ?, region = ?,
+          population = ?, currency_code = ?, exchange_rate = ?,
+          estimated_gdp = ?, flag_url = ?
+          WHERE id = ?;
+        `,
+        [
+          countryObject.name, parseNullValue(countryObject.capital),
+          parseNullValue(countryObject.region), countryObject.population,
+          parseNullValue(countryObject.currency_code), parseNullValue(countryObject.exchange_rate),
+          parseNullValue(countryObject.estimated_gdp), parseNullValue(countryObject.flag_url),
+          countryObject.id
+        ]
+      )
+      return result
+    } catch (error) {
+      throw error
+    }
+  }
+
+const parseNullValue = (value) => value === undefined ? null : value
+
+const exchangeRate = async (obj) => {
+  const rates = (await axios
+    .get(process.env.EXCHANGE_RATE_API, { timeout: 10000 }))
+      .data
+  obj.rates = rates.rates
+  return rates.rates
+}
+
+
 module.exports = {
   is_valid,
-  db,
+  connection,
   calcEstimatedGdp,
   findCountryByName,
   createAndInsertCountry,
   drawSummaryImage,
   countryCount,
   topFiveCountryByEstimatedGdp,
-  lastRefreshTimestamp
+  lastRefreshTimestamp,
+  updateCountryData,
+  parseNullValue,
+  exchangeRate,
 }

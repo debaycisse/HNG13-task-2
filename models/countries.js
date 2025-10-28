@@ -1,5 +1,5 @@
-const axios = require('axios')
-const { is_valid, db } = require('../utils/helpers')
+// const { is_valid, db, connection } = require('../utils/helpers')
+const { is_valid, connection, parseNullValue } = require('../utils/helpers')
 
 
 class Country {
@@ -24,7 +24,6 @@ class Country {
       this.exchange_rate = 0.0
       this.estimated_gdp = 0.0
       this.flag_url = null
-      // this.data = []
       return this
     } catch (error) {
       throw error;
@@ -33,9 +32,9 @@ class Country {
 
   updateCountryFields (fieldsObj) {
     try {
-      this.capital = fieldsObj.capital
-      this.region = fieldsObj.region
-      this.flag_url = fieldsObj.flag_url
+      this.capital = fieldsObj.capital || null
+      this.region = fieldsObj.region || null
+      this.flag_url = fieldsObj.flag || null
       return this
     } catch (error) {
       throw error
@@ -46,13 +45,13 @@ class Country {
     try {
       return [
         this.name,
-        this.capital,
-        this.region,
+        parseNullValue(this.capital),
+        parseNullValue(this.region),
         this.population,
-        this.currency_code,
-        this.exchange_rate,
-        this.estimated_gdp,
-        this.flag_url
+        parseNullValue(this.currency_code),
+        parseNullValue(this.exchange_rate),
+        parseNullValue(this.estimated_gdp),
+        parseNullValue(this.flag_url)
       ]
     } catch (error) {
       throw error
@@ -60,13 +59,17 @@ class Country {
   }
 
   async insertCountryData () {
+    
     try {
-      const [result] = await db.execute(
-        `INSERT INTO countries VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+      const [result] = await (await connection()).execute(
+        `INSERT INTO countries (
+          name, capital, region, population,
+          currency_code, exchange_rate, estimated_gdp,
+          flag_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
         this.obtainCountryData()
       )
       return result
-      // console.log('result ::::::', result);
       
     } catch (error) {
       throw error
@@ -75,17 +78,16 @@ class Country {
 
   async updateCountryData (id) {
     try {
-      const [result] = await db.execute(
+      const [result] = await (await connection()).execute(
         `UPDATE countries SET name = ?, capital = ?, region = ?,
           population = ?, currency_code = ?, exchange_rate = ?,
           estimated_gdp = ?, flag_url = ?
           WHERE id = ?;
         `,
         [
-          this.name, this.capital, this.region, this.population,
-          this.currency_code, this.exchange_rate, this.estimated_gdp,
-          this.flag_url,
-          id
+          this.name, parseNullValue(this.capital), parseNullValue(this.region), this.population,
+          parseNullValue(this.currency_code), parseNullValue(this.exchange_rate), parseNullValue(this.estimated_gdp),
+          parseNullValue(this.flag_url), id
         ]
       )
       return result
@@ -102,28 +104,3 @@ class Country {
 }
 
 module.exports = Country
-
-// name
-// capital
-// region
-// population
-// currency_code
-// exchange_rate
-// estimated_gdp
-// flag_url
-
-
-// class testing {
-//   name;
-//   population
-
-//   constructor(name, population) {
-//     this.name = name
-//     this.population = population
-//   }
-
-//   getProps(){
-//     return this
-//   }
-
-//  }

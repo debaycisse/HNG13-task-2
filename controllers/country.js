@@ -3,11 +3,11 @@ const Country = require('../models/countries')
 const { 
   calcEstimatedGdp, 
   findCountryByName,
-  createAndInsertCountry,
   countryCount,
   topFiveCountryByEstimatedGdp,
   lastRefreshTimestamp,
-  drawSummaryImage
+  drawSummaryImage,
+  updateCountryData
 } = require('../utils/helpers')
 
 const countryRouter = require('express').Router()
@@ -15,104 +15,117 @@ const countryRouter = require('express').Router()
 countryRouter.post('/refresh', async (req, res) => {
   try {
     // all country api to obtain
+    
     let apiName = "restcountries.com"
     const countries = await axios
-      .get(process.env.COUNTRIES_API, { timeout: 10000 })
-
+    .get(process.env.COUNTRIES_API, { timeout: 10000 })
+    
     apiName = "https://open.er-api.com/"
     let exchangeRates = null
+    const cache = {
+      rates: null
+    }
+
+    if (cache.rates === null) {
+        cache.rates = (await axios
+          .get(process.env.EXCHANGE_RATE_API, { timeout: 10000 }))
+            .data.rates
+    }
     
     const countriesData = countries.data
     
     for (const country of countriesData) {
-      let currency_code = null
-      let exchange_rate = null
-      let estimated_gdp = 0
-      
-      if (country.currencies.length > 0) {
-        currency_code = country.currencies[0].code
 
-        exchangeRates = (await axios
-          .get(process.env.EXCHANGE_RATE_API, { timeout: 10000 })).data
+      
+
+      let {
+        name, capital, region, population,
+        currencies, flag
+      } = country
+      
+      const foundRecord = await findCountryByName(name)
+
+      if (foundRecord) {
         
-        exchange_rate = exchangeRates.rates[`${currency_code}`]
+        foundRecord.capital = capital
+        foundRecord.region = region
+        foundRecord.population = population
+        foundRecord.flag_url = flag
 
-        estimated_gdp = calcEstimatedGdp(
-          country.population,
-          exchange_rate
+        console.log('currencies :', currencies);
+        
+        if (currencies && currencies.length > 0) {
+          foundRecord.currency_code = currencies[0].code
+          
+          foundRecord.exchange_rate = foundRecord.currency_code === undefined ?
+            null : cache.rates[`${foundRecord.currency_code}`]
+  
+          foundRecord.estimated_gdp = foundRecord.currency_code === undefined ?
+            null : calcEstimatedGdp(population, foundRecord.exchange_rate)
+          // console.log('Here foundRecord');
+          
+        } else {
+          foundRecord.currency_code = null
+          foundRecord.exchange_rate = null
+          foundRecord.estimated_gdp = 0
+        }
+
+        await updateCountryData(foundRecord)
+      } else {
+        
+        let currency_code = null
+        let exchange_rate = null
+        let estimated_gdp = 0
+        
+        console.log('Another currencies :', currencies);
+        
+        if (currencies && currencies.length > 0) {
+          // console.log('If currencies are available');
+          
+          currency_code = currencies[0].code
+          
+          exchange_rate = currency_code === undefined ? null :
+            cache.rates[`${currency_code}`]
+            
+          estimated_gdp = currency_code === undefined ? null :
+            calcEstimatedGdp(population, exchange_rate)
+        }
+  
+        const eachCountry = new Country(
+          name, population, currency_code
         )
+  
+        // capital, region, and flag
+        const fieldsObj = {capital, region, flag}
+        eachCountry.updateCountryFields(fieldsObj)
+  
+        // obtain exchange rate from the external api
+        eachCountry.exchange_rate = exchange_rate
+        
+        // compute estimated_gdp based on population and exchange rate
+        eachCountry.estimated_gdp = estimated_gdp
+        
+        await eachCountry.insertCountryData()
+        console.log('Now Here...');
+
       }
 
-      if (currency_code === undefined) {
-        exchange_rate = null
-        estimated_gdp = null
-      }
-
-
-      const eachCountry = new Country(
-        country.name, country.population, currency_code
-      )
-
-      // capital, region, and flag
-      eachCountry.updateCountryFields(country)
-
-      // obtain exchange rate from the external api
-      eachCountry.exchange_rate = exchange_rate
-      
-      // compute estimated_gdp based on population and exchange rate
-      eachCountry.estimated_gdp = estimated_gdp
-      
-      await eachCountry.insertCountryData()
-    }
-    
-
-    const { name, population, currency_code } = req.body
-    
-    const foundRecord = await findCountryByName(name)
-
-    if (foundRecord.length === 0) {
-      // create and insert a new country record
-      const result = await createAndInsertCountry(name, population, currency_code)
-      return res.status(201).json({
-        message: "Refresh successful",
-        operation_result: result
-      })
-    } 
-
-    const country = new Country(name, population, currency_code)
-
-    exchangeRates = (await axios
-      .get(process.env.EXCHANGE_RATE_API, { timeout: 10000 })).data
-    // update exchange_rate and estimated_gdp 
-    if (exchangeRates.rates[`${currency_code}`] !== undefined) {
-      country.exchange_rate = exchangeRates
-        .rates[`${currency_code}`]
-
-      country.estimated_gdp = calcEstimatedGdp(
-        country.population,
-        country.exchange_rate
-      )
     }
 
-    // Then execute updateCountryData
-    const result = await country.updateCountryData(foundRecord[0].id)
-
-    if (result.changedRows !== 1)
-      throw Error('Country record update failed')
-
+    // Draw the statistics image
     const dataObject = {
       countryCount: await countryCount(),
       topFive: await topFiveCountryByEstimatedGdp(),
       lastRefresh: await lastRefreshTimestamp()
     }
-
-    // Draw the statistics image
     await drawSummaryImage(dataObject)
-      
+
+    
+    const lastRefreshed = await lastRefreshTimestamp()
+
     return res.status(201).json({
       message: "Refresh successful",
-      operation_result: result
-
+      last_refreshed_at: lastRefreshed
     })
 
   } catch (error) {
