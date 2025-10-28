@@ -20,6 +20,7 @@
   "homepage": "https://github.com/debaycisse/HNG13-task-2#readme",
   "dependencies": {
     "axios": "^1.12.2",
+    "canvas": "^3.2.0",
     "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

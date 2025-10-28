@@ -3,8 +3,11 @@ const Country = require('../models/countries')
 const { 
   calcEstimatedGdp, 
   findCountryByName,
-  is_valid,
-  createAndInsertCountry 
+  createAndInsertCountry,
+  countryCount,
+  topFiveCountryByEstimatedGdp,
+  lastRefreshTimestamp,
+  drawSummaryImage
 } = require('../utils/helpers')
 
 const countryRouter = require('express').Router()
@@ -17,6 +20,7 @@ countryRouter.post('/refresh', async (req, res) => {
       .get(process.env.COUNTRIES_API, { timeout: 10000 })
 
     apiName = "https://open.er-api.com/"
+    let exchangeRates = null
     
     const countriesData = countries.data
     
@@ -28,8 +32,8 @@ countryRouter.post('/refresh', async (req, res) => {
       if (country.currencies.length > 0) {
         currency_code = country.currencies[0].code
 
-        const exchangeRates = (await axios
-          .get(process.env.EXCHANGE_RATE_API)).data
+        exchangeRates = (await axios
+          .get(process.env.EXCHANGE_RATE_API, { timeout: 10000 })).data
         
         exchange_rate = exchangeRates.rates[`${currency_code}`]
 
@@ -66,14 +70,50 @@ countryRouter.post('/refresh', async (req, res) => {
     
     const foundRecord = await findCountryByName(name)
 
-    if (!foundRecord.includes(population)) {
+    if (foundRecord.length === 0) {
       // create and insert a new country record
-      createAndInsertCountry(name, population, currency_code)
-    } else {
-      const country = new Country(name, population, currency_code)
+      const result = await createAndInsertCountry(name, population, currency_code)
+      return res.status(201).json({
+        message: "Refresh successful",
+        operation_result: result
+      })
+    } 
 
+    const country = new Country(name, population, currency_code)
+
+    exchangeRates = (await axios
+      .get(process.env.EXCHANGE_RATE_API, { timeout: 10000 })).data
+    // update exchange_rate and estimated_gdp 
+    if (exchangeRates.rates[`${currency_code}`] !== undefined) {
+      country.exchange_rate = exchangeRates
+        .rates[`${currency_code}`]
+
+      country.estimated_gdp = calcEstimatedGdp(
+        country.population,
+        country.exchange_rate
+      )
     }
 
+    // Then execute updateCountryData
+    const result = await country.updateCountryData(foundRecord[0].id)
+
+    if (result.changedRows !== 1)
+      throw Error('Country record update failed')
+
+    const dataObject = {
+      countryCount: await countryCount(),
+      topFive: await topFiveCountryByEstimatedGdp(),
+      lastRefresh: await lastRefreshTimestamp()
+    }
+
+    // Draw the statistics image
+    await drawSummaryImage(dataObject)
+      
+    return res.status(201).json({
+      message: "Refresh successful",
+      operation_result: result
+
+    })
 
   } catch (error) {
     if (error.message.includes('is required'))
@@ -90,6 +130,15 @@ countryRouter.post('/refresh', async (req, res) => {
         error: "External data source unavailable",
         details: `Could not fetch data from ${apiName}`
       })
+     }
+
+     if (
+      error.message.includes('Country record update failed')
+     ) {
+        return res.status(500).json({
+          error: 'Internal server error',
+          details: 'Could not update country record'
+        })
      }
 
      console.error(error.message);

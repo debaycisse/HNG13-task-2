@@ -61,10 +61,11 @@ class Country {
 
   async insertCountryData () {
     try {
-      const [result] = await db().execute(
-        `INSERT INTO countries VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      const [result] = await db.execute(
+        `INSERT INTO countries VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
         this.obtainCountryData()
       )
+      return result
       // console.log('result ::::::', result);
       
     } catch (error) {
@@ -74,11 +75,11 @@ class Country {
 
   async updateCountryData (id) {
     try {
-      const [result] = await db().execute(
+      const [result] = await db.execute(
         `UPDATE countries SET name = ?, capital = ?, region = ?,
           population = ?, currency_code = ?, exchange_rate = ?,
           estimated_gdp = ?, flag_url = ?
-          WHERE id = ?
+          WHERE id = ?;
         `,
         [
           this.name, this.capital, this.region, this.population,
@@ -87,6 +88,7 @@ class Country {
           id
         ]
       )
+      return result
     } catch (error) {
       throw error
     }
