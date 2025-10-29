@@ -65,6 +65,9 @@ countryRouter.post('/refresh', async (req, res) => {
           foundRecord.exchange_rate = cache
             .rates[`${foundRecord.currency_code}`]
 
+          if (foundRecord.exchange_rate !== undefined)
+            foundRecord.exchange_rate = parseFloat(foundRecord.exchange_rate.toFixed(1))
+
           foundRecord.estimated_gdp = foundRecord.exchange_rate === undefined ?
             null : calcEstimatedGdp(population, foundRecord.exchange_rate)
 
@@ -104,6 +107,9 @@ countryRouter.post('/refresh', async (req, res) => {
 
           exchange_rate = cache.rates[`${currency_code}`]
 
+          if (exchange_rate !== undefined)
+            exchange_rate = parseFloat(exchange_rate.toFixed(1))
+
           estimated_gdp = exchange_rate === undefined ? null :
             calcEstimatedGdp(population, exchange_rate)
         }
@@ -123,7 +129,9 @@ countryRouter.post('/refresh', async (req, res) => {
       }
 
     }
-
+    console.log('Length countries to insert', countriesToInsert.length);
+    console.log('Length countries to update', countriesToUpdate.length);
+    
     // bulk insert and bulk update here
     if (countriesToInsert.length > 0)
       await bulkInsert(countriesToInsert)

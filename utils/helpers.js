@@ -25,6 +25,8 @@ const connectionObj = process.env.NODE_ENV === 'development' ?
     database: process.env.DB,
     port: process.env.DB_PORT
   }
+console.log('connectionObj', connectionObj);
+
 
 const connection = async () => await mysql.
   createConnection({...connectionObj})
@@ -254,10 +256,11 @@ const extractFields = (recordObject) => {
 }
 
 const bulkInsert = async (objectsToInsert) => {
+  const db = await connection() 
   try {
-    await (await connection()).beginTransaction()
+    await db.beginTransaction()
 
-    await (await connection()).query(
+    await db.query(
       `
       INSERT INTO countries (
         name, capital, region, population, currency_code,
@@ -268,11 +271,13 @@ const bulkInsert = async (objectsToInsert) => {
       [objectsToInsert]
     )
 
-    await (await connection()).commit()
+    await db.commit()
 
   } catch (error) {
-    await (await connection()).rollback()
+    await db.rollback()
     throw error
+  } finally {
+    await db.end()
   }
 }
 

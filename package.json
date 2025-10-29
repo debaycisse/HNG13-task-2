@@ -4,7 +4,7 @@
   "description": "This task request for the implementation of a RESTful API that fetches country data from an external API, stores it in a database, and provides CRUD operations.",
   "main": "index.js",
   "scripts": {
-    "dev": "cross-env NODE_ENV=develeopment node --watch index.js",
+    "dev": "cross-env NODE_ENV=development node --watch index.js",
     "start": "cross-env NODE_ENV=production node index.js",
     "test": "cross-env NODE_ENV=test node --test"
   },

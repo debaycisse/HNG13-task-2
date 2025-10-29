@@ -1,0 +1,20 @@
+POST https://hng13-task-2-production.up.railway.app/countries/refresh
+
+Content-Type: application/json
+
+###
+GET https://hng13-task-2-production.up.railway.app/countries/Ghana
+
+
+###
+POST http://localhost:3003/countries/refresh
+
+Content-Type: application/json
+
+
+###
+GET http://localhost:3003/countries/image
+
+
+###
+GET http://localhost:3003/countries
