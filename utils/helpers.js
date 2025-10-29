@@ -26,8 +26,8 @@ const connectionObj = process.env.NODE_ENV === 'development' ?
     port: process.env.DB_PORT
   }
 
-const connection = async () => await mysql.createConnection({...connectionObj})
-// const db = await connection()
+const connection = async () => await mysql.
+  createConnection({...connectionObj})
 
 const is_valid = (name, population, currency_code) => {
   if (!name || typeof name !== 'string')
@@ -68,13 +68,18 @@ const findCountryByName = async (countryName) => {
   }
 }
 
-const createAndInsertCountry = async (name, population, currency_code) => {
+const createAndInsertCountry = async (
+  name, population, currency_code
+) => {
   try {
     // create a country object
     is_valid(name, population, currency_code)
 
     const exchangeRates = (await axios
-      .get(process.env.EXCHANGE_RATE_API), { timeout: 10000 }).data
+      .get(
+        process.env.EXCHANGE_RATE_API),
+        { timeout: 10000 }
+      ).data
 
     let exchange_rate = null
     let estimated_gdp = null
@@ -201,9 +206,12 @@ const updateCountryData = async (countryObject) => {
         `,
         [
           countryObject.name, parseNullValue(countryObject.capital),
-          parseNullValue(countryObject.region), countryObject.population,
-          parseNullValue(countryObject.currency_code), parseNullValue(countryObject.exchange_rate),
-          parseNullValue(countryObject.estimated_gdp), parseNullValue(countryObject.flag_url),
+          parseNullValue(countryObject.region),
+          countryObject.population,
+          parseNullValue(countryObject.currency_code),
+          parseNullValue(countryObject.exchange_rate),
+          parseNullValue(countryObject.estimated_gdp),
+          parseNullValue(countryObject.flag_url),
           countryObject.id
         ]
       )
@@ -234,8 +242,10 @@ const extractFieldsWithId = (recordObject) => {
 
 const extractFields = (recordObject) => {
   return {
-    name: recordObject.name, capital: parseNullValue(recordObject.capital),
-    region: parseNullValue(recordObject.region), populaiton: recordObject.population,
+    name: recordObject.name,
+    capital: parseNullValue(recordObject.capital),
+    region: parseNullValue(recordObject.region),
+    populaiton: recordObject.population,
     currency_code: parseNullValue(recordObject.currency_code),
     exchange_rate: parseNullValue(recordObject.exchange_rate),
     estimated_gdp: arseNullValue(recordObject.estimated_gdp),
@@ -288,8 +298,11 @@ const bulkUpdate = async (objectsToUpdateOrInsert) => {
           WHERE name = ?;
         `,
         [
-          parseNullValue(capital), parseNullValue(region), population, parseNullValue(currency_code),
-          parseNullValue(exchange_rate), parseNullValue(estimated_gdp), parseNullValue(flag_url), name
+          parseNullValue(capital), parseNullValue(region),
+          population, parseNullValue(currency_code),
+          parseNullValue(exchange_rate),
+          parseNullValue(estimated_gdp),
+          parseNullValue(flag_url), name
         ]
       )
 
@@ -321,7 +334,7 @@ const findCountryByQueryStrings = async (queryStrings) => {
 
 
     if (queryStrings.currency !== undefined) {
-      conditions += ' currency_code ' + '?'
+      conditions += ' currency_code = ' + '?'
       columnValues.push(queryStrings.currency)
     }
 
@@ -342,14 +355,13 @@ const findCountryByQueryStrings = async (queryStrings) => {
         columnValues.push('estimated_gdp ASC')
       }
     }
-
+    
     if (conditions.length > 0)
       query += 'WHERE ' + conditions
     if (sort.length > 0)
       query += sort
 
     query += ';'
-    console.log('query ::: ', query);
     
     const [rows] = await (await connection()).execute(
       query,

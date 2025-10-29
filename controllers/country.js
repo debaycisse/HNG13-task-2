@@ -1,7 +1,6 @@
 const axios = require('axios')
 const path = require('path')
 const fs = require('fs')
-const Country = require('../models/countries')
 const {
   calcEstimatedGdp,
   findCountryByName,
@@ -9,8 +8,6 @@ const {
   topFiveCountryByEstimatedGdp,
   lastRefreshTimestamp,
   drawSummaryImage,
-  updateCountryData,
-  extractFields,
   extractFieldsWithId,
   is_valid,
   bulkInsert,
@@ -27,8 +24,6 @@ countryRouter.post('/refresh', async (req, res) => {
     const countries = await axios
     .get(process.env.COUNTRIES_API, { timeout: 10000 })
 
-    //  console.log('total number of countries : ', countries.data.length);
-
     apiName = "https://open.er-api.com/"
 
     const cache = {
@@ -41,7 +36,6 @@ countryRouter.post('/refresh', async (req, res) => {
             .data.rates
     }
 
-
     const countriesData = countries.data
 
     const countriesToInsert = []
@@ -53,7 +47,6 @@ countryRouter.post('/refresh', async (req, res) => {
         name, capital, region, population,
         currencies, flag
       } = country
-
 
       const foundRecord = await findCountryByName(name)
 
@@ -184,7 +177,10 @@ countryRouter.post('/refresh', async (req, res) => {
   }
 })
 
-countryRouter.get('/:name', async (req, res) => {
+countryRouter.get('/:name', async (req, res, next) => {
+  if (req.path.includes('image'))
+    return next()
+  
   try {
     const countryName = req.params.name
 
@@ -198,8 +194,10 @@ countryRouter.get('/:name', async (req, res) => {
 
     const foundCountry = await findCountryByName(countryName)
 
-    if (!foundCountry)
-      throw Error('Country not found')
+    if (foundCountry === undefined)
+      return res.status(404).json({
+        error: 'Country not found'
+      })
 
     res.status(200).json(foundCountry)
 
@@ -245,10 +243,7 @@ countryRouter.get('', async (req, res) => {
       region, currency, sort
     } = req.query
 
-    
-    
     const queryStrings = {region, currency, sort}
-    console.log('queryStrings ::: ', queryStrings)
     
     const results = await findCountryByQueryStrings(queryStrings)
 
@@ -304,7 +299,7 @@ countryRouter.delete('/:name', async (req, res) => {
 
     const foundCountry = await findCountryByName(countryName)
 
-    if (!foundCountry)
+    if (foundCountry === undefined)
       throw Error('Country not found')
 
     const deleteCountry = await findCountryByNameAndDelete(countryName)
@@ -314,7 +309,6 @@ countryRouter.delete('/:name', async (req, res) => {
 
     res.status(204).end()
 
-    // Check if the deletion was successful and return 204 in status of the reponse
   } catch (error) {
     if (error.message.includes('is required'))
       return res.status(400).json({
@@ -352,16 +346,6 @@ countryRouter.delete('/:name', async (req, res) => {
   }
 })
 
-countryRouter.get('/status', async (req, res) => {
-  const totalCountries = await countryCount()
-  const lastRefreshedTimeStamp = await lastRefreshTimestamp()
-
-  res.status(200).json({
-    "total_countries": totalCountries,
-    "last_refreshed_at": lastRefreshedTimeStamp
-  })
-})
-
 countryRouter.get('/image', async (req, res) => {
   try {
     const summaryImagePath = path
@@ -379,7 +363,5 @@ countryRouter.get('/image', async (req, res) => {
     })
   }
 })
-
-
 
 module.exports = countryRouter
