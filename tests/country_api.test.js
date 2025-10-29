@@ -32,7 +32,7 @@ describe("Country Currency & Exchange API", () => {
   describe("POST /countries/refresh", () => {
     test("should fetch countries and exchange rates, cache them in DB, and return success response", async () => {
       const res = await request(app).post("/countries/refresh");
-      assert.strictEqual(res.status, 200, "Expected 200 OK status");
+      assert.strictEqual(res.status, 201, "Expected 201 OK status");
       assert.ok(res.body.last_refreshed_at, "Expected last_refreshed_at in response");
 
       // After refresh, summary image should exist
@@ -41,7 +41,7 @@ describe("Country Currency & Exchange API", () => {
 
     test("should update existing countries instead of inserting duplicates", async () => {
       const firstRefresh = await request(app).post("/countries/refresh");
-      assert.strictEqual(firstRefresh.status, 200);
+      assert.strictEqual(firstRefresh.status, 201);
       const before = await request(app).get("/countries");
       assert.ok(Array.isArray(before.body));
 

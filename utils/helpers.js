@@ -213,6 +213,139 @@ const exchangeRate = async (obj) => {
   return rates.rates
 }
 
+const extractFieldsWithId = (recordObject) => {
+  return [
+    recordObject.name, recordObject.capital, recordObject.region,
+    recordObject.population, recordObject.currency_code,
+    recordObject.exchange_rate, recordObject.estimated_gdp,
+    recordObject.flag_url
+  ]
+}
+
+const extractFields = (recordObject) => {
+  return [
+    recordObject.name, parseNullValue(recordObject.capital),
+    parseNullValue(recordObject.region), recordObject.population,
+    parseNullValue(recordObject.currency_code),
+    parseNullValue(recordObject.exchange_rate),
+    parseNullValue(recordObject.estimated_gdp),
+    parseNullValue(recordObject.flag_url)
+  ]
+}
+
+const bulkInsert = async (objectsToInsert) => {
+  try {
+    await (await connection()).beginTransaction()
+
+    await (await connection()).query(
+      `
+      INSERT INTO countries (
+        name, capital, region, population, currency_code,
+        exchange_rate, estimated_gdp, flag_url
+        )
+      VALUES ?
+      `,
+      [objectsToInsert]
+    )
+
+    await (await connection()).commit()
+
+  } catch (error) {
+    await (await connection()).rollback()
+    throw error
+  }
+}
+
+const bulkUpdate = async (objectsToUpdateOrInsert) => {
+  try {
+    await (await connection()).beginTransaction()
+
+    await (await connection()).query(
+      `
+      INSERT INTO countries (
+        name, capital, region, population, currency_code,
+        exchange_rate, estimated_gdp, flag_url
+        )
+      VALUES ?
+      ON DUPLICATE KEY UPDATE
+        capital = VALUES(capital),
+        region = VALUES(region),
+        population = VALUES(population),
+        currency_code = VALUES(currency_code),
+        exchange_rate = VALUES(exchange_rate),
+        estimated_gdp = VALUES(estimated_gdp),
+        flag_url = VALUES(flag_url)
+      `,
+      [objectsToUpdateOrInsert]
+    )
+
+    await (await connection()).commit()
+
+  } catch (error) {
+    await (await connection()).rollback()
+    throw error
+  }
+}
+
+const findCountryByQueryStrings = async (queryStrings) => {
+  try {
+    let query = `
+    SELECT *
+    FROM countries
+    `
+
+    let conditions = ''
+    let sort = ''
+    const columnValues = []
+
+    if (queryStrings.region !== undefined) {
+      conditions += ' region = ' + '?'
+      columnValues.push(queryStrings.region)
+    }
+
+
+    if (queryStrings.currency !== undefined) {
+      conditions += ' currency_code ' + '?'
+      columnValues.push(queryStrings.currency)
+    }
+
+    if (queryStrings.sort !== undefined) {
+      if (
+        queryStrings.sort.includes('gdp') &&
+        queryStrings.sort.includes('desc')
+      ) {
+        sort += ' ORDER BY ?'
+        columnValues.push(' estimated_gdp DESC')
+      }
+
+      if (
+        queryStrings.sort.includes('gdp') &&
+        queryStrings.sort.includes('asc')
+      ) {
+        sort += ' ORDER BY ?'
+        columnValues.push('estimated_gdp ASC')
+      }
+    }
+
+    if (conditions.length > 0)
+      query += conditions
+    if (sort.length > 0)
+      query += sort
+
+    query += ';'
+
+    const [rows] = await (await connection()).execute(
+      query,
+      [columnValues]
+    )
+
+    return rows  
+  } catch (error) {
+    throw error
+  }
+  
+}
+
 
 module.exports = {
   is_valid,
@@ -227,4 +360,9 @@ module.exports = {
   updateCountryData,
   parseNullValue,
   exchangeRate,
+  extractFields,
+  extractFieldsWithId,
+  bulkInsert,
+  bulkUpdate,
+  findCountryByQueryStrings
 }
