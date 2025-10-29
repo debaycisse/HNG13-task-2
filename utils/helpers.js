@@ -1,5 +1,6 @@
 const axios = require('axios')
 const fs = require('fs');
+const path = require('path')
 const { createCanvas } = require('canvas');
 const mysql = require('mysql2/promise');
 
@@ -32,7 +33,7 @@ const is_valid = (name, population, currency_code) => {
   if (!name || typeof name !== 'string')
     return {name: 'is required'}
 
-  if (!population || typeof population !== 'number')
+  if (typeof population !== 'number')
     return {population: 'is required'}
 
   if (
@@ -52,14 +53,18 @@ const calcEstimatedGdp = (population, exchange_rate) => {
 }
 
 const findCountryByName = async (countryName) => {
+  const dbConn = await connection()
+
   try {
-    const [rows] = await (await connection()).execute(
+    const [rows] = await dbConn.execute(
       `SELECT * FROM countries WHERE LOWER(name) = ?;`,
       [countryName.toLowerCase()]
     )
     return rows[0]
   } catch (error) {
     throw error
+  } finally {
+    await dbConn.end()
   }
 }
 
@@ -70,10 +75,10 @@ const createAndInsertCountry = async (name, population, currency_code) => {
 
     const exchangeRates = (await axios
       .get(process.env.EXCHANGE_RATE_API), { timeout: 10000 }).data
-    
+
     let exchange_rate = null
     let estimated_gdp = null
-    
+
     if (exchangeRates.rates[`${currency_code}`] !== undefined) {
       exchange_rate = exchangeRates.rates[`${currency_code}`]
 
@@ -86,7 +91,7 @@ const createAndInsertCountry = async (name, population, currency_code) => {
     const region = null
     const capital = null
     const flag_url = null
-    
+
     const countryObject = {
       name, capital, region, population, currency_code,
       exchange_rate, estimated_gdp, flag_url
@@ -122,11 +127,16 @@ const drawSummaryImage = async (dataObject) => {
   `
   Total number of countries : ${dataObject.countryCount}
 
-  Top 5 countries by estimated GDP: ${dataObject.topFive}
+  Top 5 countries by estimated GDP: ${dataObject.topFive[0]},
+  ${dataObject.topFive[1]},
+  ${dataObject.topFive[2]},
+  ${dataObject.topFive[3]},
+  ${dataObject.topFive[4]}
 
-  Timestamp of last referesh : ${dataObject.lastRefresh}
+  Timestamp of last referesh : 
+  ${dataObject.lastRefresh}
   `
-  canvasDraw.fillText(textToFillIn, 90, 200)
+  canvasDraw.fillText(textToFillIn, 5, 5)
 
   const imageFolder = path.join(__dirname, '../cache')
   fs.mkdirSync(imageFolder, { recursive: true })
@@ -223,14 +233,14 @@ const extractFieldsWithId = (recordObject) => {
 }
 
 const extractFields = (recordObject) => {
-  return [
-    recordObject.name, parseNullValue(recordObject.capital),
-    parseNullValue(recordObject.region), recordObject.population,
-    parseNullValue(recordObject.currency_code),
-    parseNullValue(recordObject.exchange_rate),
-    parseNullValue(recordObject.estimated_gdp),
-    parseNullValue(recordObject.flag_url)
-  ]
+  return {
+    name: recordObject.name, capital: parseNullValue(recordObject.capital),
+    region: parseNullValue(recordObject.region), populaiton: recordObject.population,
+    currency_code: parseNullValue(recordObject.currency_code),
+    exchange_rate: parseNullValue(recordObject.exchange_rate),
+    estimated_gdp: arseNullValue(recordObject.estimated_gdp),
+    flag_url: parseNullValue(recordObject.flag_url), id : recordObject.id
+  }
 }
 
 const bulkInsert = async (objectsToInsert) => {
@@ -257,33 +267,39 @@ const bulkInsert = async (objectsToInsert) => {
 }
 
 const bulkUpdate = async (objectsToUpdateOrInsert) => {
+  const db = await connection()
+
   try {
-    await (await connection()).beginTransaction()
+    await db.beginTransaction()
 
-    await (await connection()).query(
-      `
-      INSERT INTO countries (
-        name, capital, region, population, currency_code,
-        exchange_rate, estimated_gdp, flag_url
-        )
-      VALUES ?
-      ON DUPLICATE KEY UPDATE
-        capital = VALUES(capital),
-        region = VALUES(region),
-        population = VALUES(population),
-        currency_code = VALUES(currency_code),
-        exchange_rate = VALUES(exchange_rate),
-        estimated_gdp = VALUES(estimated_gdp),
-        flag_url = VALUES(flag_url)
-      `,
-      [objectsToUpdateOrInsert]
-    )
+    for (const country of objectsToUpdateOrInsert) {
+      const [
+        name, capital, region, population,
+        currency_code, exchange_rate,
+        estimated_gdp, flag_url
+      ] = country
 
-    await (await connection()).commit()
+      await db.execute(
+        `
+          UPDATE countries
+          SET capital = ?, region = ?, population = ?,
+            currency_code = ?, exchange_rate = ?, estimated_gdp = ?,
+            flag_url = ?
+          WHERE name = ?;
+        `,
+        [
+          parseNullValue(capital), parseNullValue(region), population, parseNullValue(currency_code),
+          parseNullValue(exchange_rate), parseNullValue(estimated_gdp), parseNullValue(flag_url), name
+        ]
+      )
 
+      await db.commit()
+    }
   } catch (error) {
-    await (await connection()).rollback()
+    await db.rollback()
     throw error
+  } finally {
+    await db.end()
   }
 }
 
@@ -328,22 +344,42 @@ const findCountryByQueryStrings = async (queryStrings) => {
     }
 
     if (conditions.length > 0)
-      query += conditions
+      query += 'WHERE ' + conditions
     if (sort.length > 0)
       query += sort
 
     query += ';'
-
+    console.log('query ::: ', query);
+    
     const [rows] = await (await connection()).execute(
       query,
       [columnValues]
     )
 
-    return rows  
+    return rows
   } catch (error) {
     throw error
   }
-  
+
+}
+
+const findCountryByNameAndDelete = async (countryName) => {
+  const db = await connection()
+
+  try {
+    const [result] = await db.execute(
+      `
+      DELETE FROM countries
+      WHERE name = ?
+      `,
+      [countryName]
+    )
+    return result.affectedRows
+  } catch (error) {
+    throw error    
+  } finally {
+    await db.end()
+  }
 }
 
 
@@ -364,5 +400,6 @@ module.exports = {
   extractFieldsWithId,
   bulkInsert,
   bulkUpdate,
-  findCountryByQueryStrings
+  findCountryByQueryStrings,
+  findCountryByNameAndDelete
 }

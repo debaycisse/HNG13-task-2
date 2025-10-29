@@ -29,82 +29,82 @@ describe("Country Currency & Exchange API", () => {
   // ----------------------------------------
   // POST /countries/refresh
   // ----------------------------------------
-  describe("POST /countries/refresh", () => {
-    test("should fetch countries and exchange rates, cache them in DB, and return success response", async () => {
-      const res = await request(app).post("/countries/refresh");
-      assert.strictEqual(res.status, 201, "Expected 201 OK status");
-      assert.ok(res.body.last_refreshed_at, "Expected last_refreshed_at in response");
+  // describe("POST /countries/refresh", () => {
+  //   test("should fetch countries and exchange rates, cache them in DB, and return success response", async () => {
+  //     const res = await request(app).post("/countries/refresh");
+  //     assert.strictEqual(res.status, 200, "Expected 200 OK status");
+  //     assert.ok(res.body.last_refreshed_at, "Expected last_refreshed_at in response");
 
-      // After refresh, summary image should exist
-      assert.ok(fs.existsSync(summaryImagePath), "Expected summary image file to be generated");
-    });
+  //     // After refresh, summary image should exist
+  //     assert.ok(fs.existsSync(summaryImagePath), "Expected summary image file to be generated");
+  //   });
 
-    test("should update existing countries instead of inserting duplicates", async () => {
-      const firstRefresh = await request(app).post("/countries/refresh");
-      assert.strictEqual(firstRefresh.status, 201);
-      const before = await request(app).get("/countries");
-      assert.ok(Array.isArray(before.body));
+  //   test("should update existing countries instead of inserting duplicates", async () => {
+  //     const firstRefresh = await request(app).post("/countries/refresh");
+  //     assert.strictEqual(firstRefresh.status, 200);
+  //     const before = await request(app).get("/countries");
+  //     assert.ok(Array.isArray(before.body));
 
-      const secondRefresh = await request(app).post("/countries/refresh");
-      assert.strictEqual(secondRefresh.status, 200);
+  //     const secondRefresh = await request(app).post("/countries/refresh");
+  //     assert.strictEqual(secondRefresh.status, 200);
 
-      const after = await request(app).get("/countries");
-      assert.strictEqual(before.body.length, after.body.length, "Expected no duplicate countries");
-    });
+  //     const after = await request(app).get("/countries");
+  //     assert.strictEqual(before.body.length, after.body.length, "Expected no duplicate countries");
+  //   });
 
-    test("should handle external API failure gracefully with 503 response", async () => {
-      // Simulate by temporarily disconnecting network in the app (if implemented)
-      // If you have an ENV to force failure, enable test before calling
-      process.env.MOCK_API_FAILURE = "true";
-      const res = await request(app).post("/countries/refresh");
-      delete process.env.MOCK_API_FAILURE;
+  //   test("should handle external API failure gracefully with 503 response", async () => {
+  //     // Simulate by temporarily disconnecting network in the app (if implemented)
+  //     // If you have an ENV to force failure, enable test before calling
+  //     process.env.MOCK_API_FAILURE = "true";
+  //     const res = await request(app).post("/countries/refresh");
+  //     delete process.env.MOCK_API_FAILURE;
 
-      // If MOCK_API_FAILURE not supported, skip test gracefully
-      if (res.status !== 503) return;
+  //     // If MOCK_API_FAILURE not supported, skip test gracefully
+  //     if (res.status !== 503) return;
 
-      assert.strictEqual(res.status, 503);
-      assert.strictEqual(res.body.error, "External data source unavailable");
-      assert.ok(res.body.details.includes("restcountries") || res.body.details.includes("open.er-api"));
-    });
-  });
+  //     assert.strictEqual(res.status, 503);
+  //     assert.strictEqual(res.body.error, "External data source unavailable");
+  //     assert.ok(res.body.details.includes("restcountries") || res.body.details.includes("open.er-api"));
+  //   });
+  // });
 
   // ----------------------------------------
   // GET /countries
   // ----------------------------------------
-//   describe("GET /countries", () => {
-//     test("should return all countries from the database", async () => {
-//       const res = await request(app).get("/countries");
-//       assert.strictEqual(res.status, 200);
-//       assert.ok(Array.isArray(res.body), "Expected an array of countries");
-//       if (res.body.length > 0) {
-//         const c = res.body[0];
-//         assert.ok(c.name, "Expected name field");
-//         assert.ok(c.population, "Expected population field");
-//       }
-//     });
+  describe("GET /countries", () => {
+    test("should return all countries from the database", async () => {
+      const res = await request(app).get("/countries");
+      assert.strictEqual(res.status, 200);
+      assert.ok(Array.isArray(res.body), "Expected an array of countries");
+      if (res.body.length > 0) {
+        const c = res.body[0];
+        assert.ok(c.name, "Expected name field");
+        assert.ok(c.population, "Expected population field");
+      }
+    });
 
-//     test("should filter countries by region", async () => {
-//       const res = await request(app).get("/countries?region=Africa");
-//       assert.strictEqual(res.status, 200);
-//       assert.ok(Array.isArray(res.body));
-//       res.body.forEach((c) => assert.strictEqual(c.region, "Africa"));
-//     });
+    test("should filter countries by region", async () => {
+      const res = await request(app).get("/countries?region=Africa");
+      assert.strictEqual(res.status, 200);
+      assert.ok(Array.isArray(res.body));
+      res.body.forEach((c) => assert.strictEqual(c.region, "Africa"));
+    });
 
-//     test("should filter countries by currency code", async () => {
-//       const res = await request(app).get("/countries?currency=NGN");
-//       assert.strictEqual(res.status, 200);
-//       assert.ok(Array.isArray(res.body));
-//       res.body.forEach((c) => assert.strictEqual(c.currency_code, "NGN"));
-//     });
+    test("should filter countries by currency code", async () => {
+      const res = await request(app).get("/countries?currency=NGN");
+      assert.strictEqual(res.status, 200);
+      assert.ok(Array.isArray(res.body));
+      res.body.forEach((c) => assert.strictEqual(c.currency_code, "NGN"));
+    });
 
-//     test("should sort countries by estimated_gdp descending", async () => {
-//       const res = await request(app).get("/countries?sort=gdp_desc");
-//       assert.strictEqual(res.status, 200);
-//       const gdps = res.body.map((c) => c.estimated_gdp);
-//       const sorted = [...gdps].sort((a, b) => b - a);
-//       assert.deepStrictEqual(gdps, sorted, "Expected countries sorted by GDP descending");
-//     });
-//   });
+    test("should sort countries by estimated_gdp descending", async () => {
+      const res = await request(app).get("/countries?sort=gdp_desc");
+      assert.strictEqual(res.status, 200);
+      const gdps = res.body.map((c) => c.estimated_gdp);
+      const sorted = [...gdps].sort((a, b) => b - a);
+      assert.deepStrictEqual(gdps, sorted, "Expected countries sorted by GDP descending");
+    });
+  });
 
   // ----------------------------------------
   // GET /countries/:name

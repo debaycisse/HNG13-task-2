@@ -6,11 +6,7 @@ const app = express()
 app.use(express.json())
 
 app.use('/countries', countryRouter)
-
-// app.post('/here', async (req, res) => {
-//     console.log('req.body', req.body);
-//     return res.status(201).end()
-// })
+app.use('/status', countryRouter)
 
 // APP.USE FOR THE ROUTER
 // REQUEST LOGGER
