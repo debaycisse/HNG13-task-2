@@ -25,8 +25,6 @@ const connectionObj = process.env.NODE_ENV === 'development' ?
     database: process.env.DB,
     port: process.env.DB_PORT
   }
-console.log('connectionObj', connectionObj);
-
 
 const connection = async () => await mysql.
   createConnection({...connectionObj})
@@ -337,7 +335,6 @@ const findCountryByQueryStrings = async (queryStrings) => {
       columnValues.push(queryStrings.region)
     }
 
-
     if (queryStrings.currency !== undefined) {
       conditions += ' currency_code = ' + '?'
       columnValues.push(queryStrings.currency)
@@ -370,7 +367,7 @@ const findCountryByQueryStrings = async (queryStrings) => {
     
     const [rows] = await (await connection()).execute(
       query,
-      [columnValues]
+      columnValues
     )
 
     return rows

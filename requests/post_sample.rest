@@ -17,4 +17,12 @@ GET http://localhost:3003/countries/image
 
 
 ###
+GET http://localhost:3003/countries/Nigeria
+
+
+###
 GET http://localhost:3003/countries
+
+
+###
+GET http://localhost:3003/countries?currency=NGN

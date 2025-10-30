@@ -129,8 +129,6 @@ countryRouter.post('/refresh', async (req, res) => {
       }
 
     }
-    console.log('Length countries to insert', countriesToInsert.length);
-    console.log('Length countries to update', countriesToUpdate.length);
     
     // bulk insert and bulk update here
     if (countriesToInsert.length > 0)
